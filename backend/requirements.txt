@@ -1,0 +1,6 @@
+flask
+flask-cors
+scikit-learn
+shap==0.48.0
+pandas
+numpy
