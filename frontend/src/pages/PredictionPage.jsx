@@ -40,13 +40,38 @@ const fieldTooltips = {
   BMI: 'BMI is weight(kg) divided by height(m²). Normal range is 18.5–24.9. Enter value between 0–70.',
 }
 
+const defaultPredictionPresets = [
+  {
+    id: 'preset-jeff',
+    name: 'Jeff',
+    values: {
+      Pregnancies: '0',
+      Glucose: '137',
+      Insulin: '168',
+      BMI: '43.1',
+      Age: '33',
+    },
+  },
+  {
+    id: 'preset-robin',
+    name: 'Robin',
+    values: {
+      Pregnancies: '1',
+      Glucose: '89',
+      Insulin: '94',
+      BMI: '28.1',
+      Age: '21',
+    },
+  },
+]
+
 function PredictionPage() {
   const [formData, setFormData] = useState(initialForm)
   const [patientName, setPatientName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)
-  const [predictionHistory, setPredictionHistory] = useState([])
+  const [predictionHistory, setPredictionHistory] = useState(defaultPredictionPresets)
 
   const hasPredictionHistory = predictionHistory.length > 0
 
@@ -137,7 +162,7 @@ function PredictionPage() {
           Age: formData.Age,
         },
       }
-      setPredictionHistory((prev) => [historyItem, ...prev])
+      setPredictionHistory((prev) => [...prev, historyItem])
     } catch (submitError) {
       setError(submitError.message || 'Something went wrong. Please try again.')
     } finally {
