@@ -12,3 +12,4 @@ pages
 .command
 venv/
 venv
+.env
