@@ -40,6 +40,7 @@ Understanding diabetes risk through data-driven predictions can help identify po
 - Practical application of machine learning.
 - Model interpretability through SHAP and permutation importance.
 - Real-world deployment of machine learning models.
+- Real-world usage of the systems provided, and its proper usage.
 
 ---
 
