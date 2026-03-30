@@ -151,17 +151,17 @@ function DietAnalyzerPage() {
   }
 
   return (
-    <section className={`mx-auto w-full max-w-6xl px-6 py-14 ${hasHistory ? 'lg:pr-80' : ''}`}>
+    <section className={`mx-auto w-full max-w-6xl px-4 sm:px-6 py-8 sm:py-14 ${hasHistory ? 'lg:pr-80' : ''}`}>
       <div className="space-y-8">
         {!loading && !analysis ? (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-8 shadow-xl shadow-slate-950/40">
-            <h1 className="text-3xl font-bold text-white">Diet Analyzer</h1>
-            <p className="mt-2 text-slate-300">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 shadow-xl shadow-slate-950/40">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">Diet Analyzer</h1>
+            <p className="mt-2 text-sm sm:text-base text-slate-300">
               Upload a food image and get nutrition details with diabetic risk insights.
             </p>
 
             <div
-              className="mt-8 rounded-2xl border-2 border-dashed border-slate-700 bg-slate-950/60 p-6 text-center"
+              className="mt-8 rounded-2xl border-2 border-dashed border-slate-700 bg-slate-950/60 p-6 sm:p-8 text-center"
               onDrop={handleDrop}
               onDragOver={handleDragOver}
             >
@@ -175,7 +175,7 @@ function DietAnalyzerPage() {
 
               <label
                 htmlFor="food-image-upload"
-                className="cursor-pointer text-cyan-300 hover:text-cyan-200"
+                className="cursor-pointer text-sm sm:text-base text-cyan-300 hover:text-cyan-200"
               >
                 Drag and drop a food image here, or click to upload
               </label>
@@ -185,38 +185,38 @@ function DietAnalyzerPage() {
                   <img
                     src={previewUrl}
                     alt="Food preview"
-                    className="mx-auto max-h-72 rounded-xl border border-slate-700 object-contain"
+                    className="mx-auto max-h-64 sm:max-h-72 rounded-xl border border-slate-700 object-contain"
                   />
                 </div>
               ) : null}
             </div>
 
-            <div className="mt-6 flex items-center gap-4">
+            <div className="mt-6 flex flex-col sm:flex-row items-center gap-4">
               <button
                 type="button"
                 onClick={handleAnalyze}
-                className="inline-flex items-center justify-center rounded-xl bg-cyan-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400"
+                className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl bg-cyan-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400"
               >
                 Analyze
               </button>
 
-              {error ? <p className="text-sm text-red-400">{error}</p> : null}
+              {error ? <p className="text-xs sm:text-sm text-red-400">{error}</p> : null}
             </div>
           </div>
         ) : null}
 
         {loading ? (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-8 shadow-xl shadow-slate-950/40">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 shadow-xl shadow-slate-950/40">
             <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-12 text-center">
-              <div className="mx-auto flex h-40 w-40 items-center justify-center">
-                <div className="relative h-32 w-32">
+              <div className="mx-auto flex h-32 sm:h-40 w-32 sm:w-40 items-center justify-center">
+                <div className="relative h-24 sm:h-32 w-24 sm:w-32">
                   <div className="absolute inset-0 animate-spin rounded-full border-2 border-cyan-400/80 border-t-transparent" />
                   <div className="absolute inset-4 animate-pulse rounded-full border border-cyan-300/60" />
                   <div className="absolute inset-8 rounded-full bg-cyan-400/10" />
                 </div>
               </div>
               <p
-                className={`mt-5 text-sm text-slate-300 transition-opacity duration-500 ${messageVisible ? 'opacity-100' : 'opacity-0'}`}
+                className={`mt-5 text-xs sm:text-sm text-slate-300 transition-opacity duration-500 px-4 ${messageVisible ? 'opacity-100' : 'opacity-0'}`}
               >
                 {loadingMessages[loadingMessageIndex]}
               </p>
@@ -225,22 +225,22 @@ function DietAnalyzerPage() {
         ) : null}
 
         {analysis && !loading ? (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl shadow-slate-950/40 lg:p-8">
-            <div className="grid gap-6 lg:grid-cols-5 lg:items-start">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 shadow-xl shadow-slate-950/40">
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-5 lg:items-start">
               <div className="lg:col-span-2">
                 <div className="flex flex-col items-center gap-4 lg:items-start">
                   {previewUrl ? (
                     <img
                       src={previewUrl}
                       alt="Analyzed food"
-                      className="h-56 w-56 rounded-xl border border-slate-700 object-cover"
+                      className="h-48 w-48 sm:h-56 sm:w-56 rounded-xl border border-slate-700 object-cover"
                     />
                   ) : null}
 
                   <button
                     type="button"
                     onClick={handleAnalyzeAnother}
-                    className="inline-flex items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-5 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-700"
+                    className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-5 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-700"
                   >
                     Analyze Another
                   </button>
@@ -248,16 +248,16 @@ function DietAnalyzerPage() {
               </div>
 
               <div className="lg:col-span-3">
-                <h2 className="text-3xl font-extrabold text-white lg:text-4xl">{analysis.food_name}</h2>
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white">{analysis.food_name}</h2>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="mt-5 grid gap-3 grid-cols-2 sm:grid-cols-2 lg:grid-cols-3">
                   {nutrientCards.map((card) => (
                     <div
                       key={card.minKey}
-                      className="rounded-xl border border-slate-800 bg-slate-950/70 p-4"
+                      className="rounded-xl border border-slate-800 bg-slate-950/70 p-3 sm:p-4"
                     >
-                      <p className="text-sm text-slate-400">{card.label}</p>
-                      <p className="mt-2 text-lg font-bold text-slate-100">
+                      <p className="text-xs sm:text-sm text-slate-400">{card.label}</p>
+                      <p className="mt-2 text-sm sm:text-lg font-bold text-slate-100">
                         {Number(analysis[card.minKey]).toFixed(1)} - {Number(analysis[card.maxKey]).toFixed(1)} {card.unit}
                       </p>
                     </div>
@@ -266,12 +266,12 @@ function DietAnalyzerPage() {
 
                 <div className="mt-5">
                   <span
-                    className={`inline-flex rounded-full px-4 py-2 text-sm font-semibold ${riskBadgeStyles[riskKey] || 'bg-slate-700 text-slate-200 border border-slate-600'}`}
+                    className={`inline-flex rounded-full px-4 py-2 text-xs sm:text-sm font-semibold ${riskBadgeStyles[riskKey] || 'bg-slate-700 text-slate-200 border border-slate-600'}`}
                   >
                     Diabetic Risk: {analysis.diabetic_risk}
                   </span>
 
-                  <p className="mt-3 text-slate-300">{analysis.reason}</p>
+                  <p className="mt-3 text-xs sm:text-sm text-slate-300">{analysis.reason}</p>
                   <p className="mt-4 text-xs text-slate-400">
                     ⚠️ Nutritional values are AI-estimated based on a standard serving size and may vary depending on portion size, ingredients, and preparation method.
                   </p>

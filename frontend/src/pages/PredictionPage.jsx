@@ -183,11 +183,11 @@ function PredictionPage() {
   }
 
   return (
-    <section className={`mx-auto w-full max-w-7xl px-6 py-14 ${hasPredictionHistory ? 'lg:pr-80' : ''}`}>
+    <section className={`mx-auto w-full max-w-7xl px-4 sm:px-6 py-8 sm:py-14 ${hasPredictionHistory ? 'lg:pr-80' : ''}`}>
       <div className="space-y-8">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-8 shadow-xl shadow-slate-950/40">
-          <h1 className="text-3xl font-bold text-white">Prediction</h1>
-          <p className="mt-2 text-slate-300">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 shadow-xl shadow-slate-950/40">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">Prediction</h1>
+          <p className="mt-2 text-sm sm:text-base text-slate-300">
             Enter your health metrics to estimate diabetes risk.
           </p>
 
@@ -200,16 +200,16 @@ function PredictionPage() {
                 value={patientName}
                 onChange={(event) => setPatientName(event.target.value)}
                 placeholder="Enter patient name"
-                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-xl text-slate-100 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30"
+                className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-base sm:text-lg text-slate-100 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30"
                 required
               />
             </label>
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-8 grid gap-5 md:grid-cols-2">
+          <form onSubmit={handleSubmit} className="mt-8 grid gap-5 grid-cols-1 sm:grid-cols-2">
             {fieldConfig.map((field) => (
               <label key={field.name} className="flex flex-col gap-2">
-                <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-200">
+                <span className="inline-flex items-center gap-2 text-xs sm:text-sm font-medium text-slate-200">
                   {field.name}
                   {fieldTooltips[field.name] ? (
                     <span className="group relative inline-flex">
@@ -221,7 +221,7 @@ function PredictionPage() {
                       >
                         ⓘ
                       </span>
-                      <span className="pointer-events-none absolute bottom-7 left-1/2 z-20 w-64 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-normal text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+                      <span className="pointer-events-none absolute bottom-7 left-1/2 z-20 w-48 sm:w-64 -translate-x-1/2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-normal text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
                         {fieldTooltips[field.name]}
                       </span>
                     </span>
@@ -236,17 +236,17 @@ function PredictionPage() {
                   value={formData[field.name]}
                   onChange={handleChange}
                   placeholder={fieldPlaceholders[field.name]}
-                  className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30"
+                  className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm sm:text-base text-slate-100 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/30"
                   required
                 />
               </label>
             ))}
 
-            <div className="md:col-span-2 mt-2 flex items-center gap-4">
+            <div className="sm:col-span-2 mt-2 flex flex-col sm:flex-row items-center gap-4">
               <button
                 type="submit"
                 disabled={loading}
-                className="inline-flex items-center justify-center rounded-xl bg-cyan-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-70"
+                className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl bg-cyan-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {loading ? (
                   <span className="inline-flex items-center gap-2">
@@ -258,22 +258,22 @@ function PredictionPage() {
                 )}
               </button>
 
-              {error ? <p className="text-sm text-red-400">{error}</p> : null}
+              {error ? <p className="text-xs sm:text-sm text-red-400">{error}</p> : null}
             </div>
           </form>
         </div>
 
         {result ? (
           <div className="space-y-8">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-8 shadow-xl shadow-slate-950/40">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 shadow-xl shadow-slate-950/40">
               <h2
-                className={`text-4xl font-extrabold ${isHighRisk ? 'text-red-400' : 'text-emerald-400'}`}
+                className={`text-2xl sm:text-4xl font-extrabold ${isHighRisk ? 'text-red-400' : 'text-emerald-400'}`}
               >
                 {isHighRisk ? 'High Risk' : 'Low Risk'}
               </h2>
-              <p className="mt-3 text-lg text-slate-200">{probabilityPercent}</p>
+              <p className="mt-3 text-sm sm:text-lg text-slate-200">{probabilityPercent}</p>
 
-              <div className="mt-8 h-[360px] rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+              <div className="mt-8 h-64 sm:h-96 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={chartData}
@@ -289,9 +289,9 @@ function PredictionPage() {
                     <YAxis
                       type="category"
                       dataKey="feature"
-                      width={130}
+                      width={80}
                       stroke="#94a3b8"
-                      tick={{ fill: '#cbd5e1', fontSize: 12 }}
+                      tick={{ fill: '#cbd5e1', fontSize: 11 }}
                     />
                     <Tooltip
                       contentStyle={{
@@ -316,30 +316,30 @@ function PredictionPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-8 shadow-xl shadow-slate-950/40">
-              <h3 className="text-2xl font-bold text-white">Recommendations</h3>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 shadow-xl shadow-slate-950/40">
+              <h3 className="text-xl sm:text-2xl font-bold text-white">Recommendations</h3>
 
               {isHighRisk ? (
-                <div className="mt-4 grid gap-6 md:grid-cols-3">
+                <div className="mt-4 grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                   <div>
-                    <p className="font-semibold text-red-300">Diet Tips</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-300">
+                    <p className="font-semibold text-red-300 text-sm sm:text-base">Diet Tips</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs sm:text-sm text-slate-300">
                       <li>Reduce sugary drinks and refined carbs.</li>
                       <li>Focus on high-fiber meals and lean protein.</li>
                       <li>Control portions and meal timing consistently.</li>
                     </ul>
                   </div>
                   <div>
-                    <p className="font-semibold text-red-300">Exercise Tips</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-300">
+                    <p className="font-semibold text-red-300 text-sm sm:text-base">Exercise Tips</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs sm:text-sm text-slate-300">
                       <li>Aim for 30–45 minutes of brisk walking daily.</li>
                       <li>Add resistance training 2–3 times per week.</li>
                       <li>Break long sitting periods with short movement.</li>
                     </ul>
                   </div>
                   <div>
-                    <p className="font-semibold text-red-300">Habits to Avoid</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-300">
+                    <p className="font-semibold text-red-300 text-sm sm:text-base">Habits to Avoid</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs sm:text-sm text-slate-300">
                       <li>Skipping meals followed by heavy eating.</li>
                       <li>Late-night snacking and poor sleep routines.</li>
                       <li>Smoking and frequent high-calorie processed food.</li>
@@ -347,18 +347,18 @@ function PredictionPage() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-4 grid gap-6 md:grid-cols-2">
+                <div className="mt-4 grid gap-6 grid-cols-1 sm:grid-cols-2">
                   <div>
-                    <p className="font-semibold text-emerald-300">Maintenance Tips</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-300">
+                    <p className="font-semibold text-emerald-300 text-sm sm:text-base">Maintenance Tips</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs sm:text-sm text-slate-300">
                       <li>Keep balanced meals with whole grains and vegetables.</li>
                       <li>Stay hydrated and maintain regular sleep schedule.</li>
                       <li>Monitor your weight and routine health markers.</li>
                     </ul>
                   </div>
                   <div>
-                    <p className="font-semibold text-emerald-300">Healthy Habits to Continue</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-slate-300">
+                    <p className="font-semibold text-emerald-300 text-sm sm:text-base">Healthy Habits to Continue</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs sm:text-sm text-slate-300">
                       <li>Continue regular physical activity each week.</li>
                       <li>Maintain low intake of added sugars.</li>
                       <li>Do periodic preventive checkups with your doctor.</li>

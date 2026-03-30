@@ -1,8 +1,9 @@
 flask
 flask-cors
 scikit-learn
-shap==0.48.0
+shap==0.45.0
 pandas
 numpy
 google-generativeai
 python-dotenv
+joblib
