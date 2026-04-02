@@ -8,7 +8,7 @@ This project demonstrates a machine learning solution for predicting diabetes ba
 
 ## Live Demo
 
-Check out the live application: [Diabetes Prediction App](https://diabetes-prediction-uz.streamlit.app/)
+Check out the live application: [Diabetes Prediction App]
 
 ---
 
@@ -143,7 +143,7 @@ Selects specific columns *Pregnancies*, *Glucose*, *BMI*, *PregnancyRatio*,
 ### Steps
 1. Clone the repository:
    ```bash
-   git clone https://github.com/UznetDev/Diabetes-Prediction.git
+   git clone https://github.com/shreyashmoon/D-Shield-DiabetesPrediction.git
    cd Diabetes-Prediction
    ```
 
