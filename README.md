@@ -153,11 +153,14 @@ Selects specific columns *Pregnancies*, *Glucose*, *BMI*, *PregnancyRatio*,
    ```
 
 3. Run the application locally:
-
-  .../backend : python app.py
-  
-  .../frontend :  npm run dev
    
+  ```bash
+  .../backend : python app.py
+  ```
+   
+  ```bash
+  .../frontend :  npm run dev
+  ```
 
 ---
 
