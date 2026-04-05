@@ -72,6 +72,8 @@ function PredictionPage() {
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)
   const [predictionHistory, setPredictionHistory] = useState(defaultPredictionPresets)
+  const [duplicateWarning, setDuplicateWarning] = useState('')
+  const [highlightedHistoryId, setHighlightedHistoryId] = useState(null)
 
   const hasPredictionHistory = predictionHistory.length > 0
 
@@ -103,6 +105,7 @@ function PredictionPage() {
   const handleSubmit = async (event) => {
     event.preventDefault()
     setError('')
+    setDuplicateWarning('')
 
     const trimmedName = patientName.trim()
     if (!trimmedName) {
@@ -131,6 +134,20 @@ function PredictionPage() {
 
       payload[field.name] = numeric
     }
+
+    const duplicateEntry = predictionHistory.find((entry) => {
+      if (entry.name !== trimmedName) {
+        return false
+      }
+
+      return (
+        Number(entry.values.Pregnancies) === payload.Pregnancies &&
+        Number(entry.values.Glucose) === payload.Glucose &&
+        Number(entry.values.Insulin) === payload.Insulin &&
+        Number(entry.values.BMI) === payload.BMI &&
+        Number(entry.values.Age) === payload.Age
+      )
+    })
 
     setLoading(true)
     setResult(null)
@@ -162,7 +179,16 @@ function PredictionPage() {
           Age: formData.Age,
         },
       }
-      setPredictionHistory((prev) => [...prev, historyItem])
+
+      if (!duplicateEntry) {
+        setPredictionHistory((prev) => [...prev, historyItem])
+      } else {
+        setDuplicateWarning('This patient record already exists in your recent predictions.')
+        setHighlightedHistoryId(duplicateEntry.id)
+        setTimeout(() => {
+          setHighlightedHistoryId((current) => (current === duplicateEntry.id ? null : current))
+        }, 3000)
+      }
     } catch (submitError) {
       setError(submitError.message || 'Something went wrong. Please try again.')
     } finally {
@@ -183,8 +209,8 @@ function PredictionPage() {
   }
 
   return (
-    <section className={`mx-auto w-full max-w-7xl px-4 sm:px-6 py-8 sm:py-14 ${hasPredictionHistory ? 'lg:pr-80' : ''}`}>
-      <div className="space-y-8">
+    <section className={`mx-auto w-full max-w-7xl px-4 sm:px-6 py-8 sm:py-14 ${hasPredictionHistory ? 'lg:pr-[18.5rem]' : ''}`}>
+      <div className="mx-auto w-full max-w-[700px] space-y-8">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 shadow-xl shadow-slate-950/40">
           <h1 className="text-2xl sm:text-3xl font-bold text-white">Prediction</h1>
           <p className="mt-2 text-sm sm:text-base text-slate-300">
@@ -257,6 +283,8 @@ function PredictionPage() {
                   'Predict'
                 )}
               </button>
+
+              {duplicateWarning ? <p className="text-xs sm:text-sm text-amber-300">{duplicateWarning}</p> : null}
 
               {error ? <p className="text-xs sm:text-sm text-red-400">{error}</p> : null}
             </div>
@@ -380,7 +408,11 @@ function PredictionPage() {
                 key={entry.id}
                 type="button"
                 onClick={() => handleSelectPrediction(entry)}
-                className="w-full rounded-lg bg-slate-800/70 px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-slate-700/70"
+                className={`w-full rounded-lg border px-3 py-2 text-left text-sm text-slate-200 transition ${
+                  highlightedHistoryId === entry.id
+                    ? 'border-cyan-300/70 bg-cyan-500/20 shadow-[0_0_18px_rgba(34,211,238,0.45)]'
+                    : 'border-transparent bg-slate-800/70 hover:bg-slate-700/70'
+                }`}
               >
                 {entry.name}
               </button>
