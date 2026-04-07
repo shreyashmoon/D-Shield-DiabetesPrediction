@@ -69,8 +69,11 @@ function PredictionPage() {
   const [formData, setFormData] = useState(initialForm)
   const [patientName, setPatientName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [recommendationLoading, setRecommendationLoading] = useState(false)
   const [error, setError] = useState('')
+  const [recommendationError, setRecommendationError] = useState('')
   const [result, setResult] = useState(null)
+  const [recommendations, setRecommendations] = useState(null)
   const [predictionHistory, setPredictionHistory] = useState(defaultPredictionPresets)
   const [duplicateWarning, setDuplicateWarning] = useState('')
   const [highlightedHistoryId, setHighlightedHistoryId] = useState(null)
@@ -93,8 +96,10 @@ function PredictionPage() {
   }, [result])
 
   const isHighRisk = result?.prediction === 1
+  const predictionLabel = isHighRisk ? 'High Risk' : 'Low Risk'
+  const probabilityValue = result ? (Number(result.probability) * 100).toFixed(1) : '0.0'
   const probabilityPercent = result
-    ? `${(Number(result.probability) * 100).toFixed(1)}% probability of diabetes`
+    ? `${probabilityValue}% probability of diabetes`
     : ''
 
   const handleChange = (event) => {
@@ -151,6 +156,9 @@ function PredictionPage() {
 
     setLoading(true)
     setResult(null)
+    setRecommendations(null)
+    setRecommendationError('')
+    setRecommendationLoading(false)
 
     try {
       const response = await fetch('http://localhost:5000/predict', {
@@ -206,11 +214,52 @@ function PredictionPage() {
       Age: String(entry.values.Age),
     })
     setError('')
+    setRecommendationError('')
+    setRecommendations(null)
+  }
+
+  const handleGetRecommendations = async () => {
+    if (!result) {
+      return
+    }
+
+    setRecommendationLoading(true)
+    setRecommendationError('')
+
+    try {
+      const response = await fetch('http://localhost:5000/recommend', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          Pregnancies: Number(formData.Pregnancies),
+          Glucose: Number(formData.Glucose),
+          Insulin: Number(formData.Insulin),
+          BMI: Number(formData.BMI),
+          Age: Number(formData.Age),
+          result: predictionLabel,
+          probability: Number(probabilityValue),
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to fetch AI recommendations.')
+      }
+
+      setRecommendations(data)
+    } catch (recommendationSubmitError) {
+      setRecommendationError(recommendationSubmitError.message || 'Something went wrong while fetching recommendations.')
+    } finally {
+      setRecommendationLoading(false)
+    }
   }
 
   return (
     <section className={`mx-auto w-full max-w-7xl px-4 sm:px-6 py-8 sm:py-14 ${hasPredictionHistory ? 'lg:pr-[18.5rem]' : ''}`}>
-      <div className="mx-auto w-full max-w-[700px] space-y-8">
+      <div className="mx-auto w-full max-w-[1000px] space-y-8">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 shadow-xl shadow-slate-950/40">
           <h1 className="text-2xl sm:text-3xl font-bold text-white">Prediction</h1>
           <p className="mt-2 text-sm sm:text-base text-slate-300">
@@ -342,59 +391,84 @@ function PredictionPage() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+
+              <div className="mt-6 flex flex-col sm:flex-row items-center gap-4">
+                <button
+                  type="button"
+                  onClick={handleGetRecommendations}
+                  disabled={recommendationLoading}
+                  className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl bg-cyan-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {recommendationLoading ? (
+                    <span className="inline-flex items-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-950 border-t-transparent" />
+                      Fetching AI Recommendations...
+                    </span>
+                  ) : (
+                    'Get AI Recommendations'
+                  )}
+                </button>
+
+                {recommendationError ? <p className="text-xs sm:text-sm text-red-400">{recommendationError}</p> : null}
+              </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 shadow-xl shadow-slate-950/40">
-              <h3 className="text-xl sm:text-2xl font-bold text-white">Recommendations</h3>
+            {recommendationLoading || recommendations ? (
+              <div className="w-full max-w-[900px] rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 shadow-xl shadow-slate-950/40">
+                {recommendationLoading ? (
+                  <div className="flex min-h-[240px] flex-col items-center justify-center text-center">
+                    <div className="relative h-16 w-16 sm:h-20 sm:w-20">
+                      <div className="absolute inset-0 animate-spin rounded-full border-4 border-cyan-400/80 border-t-transparent" />
+                      <div className="absolute inset-3 rounded-full border border-cyan-300/40" />
+                      <div className="absolute inset-6 rounded-full bg-cyan-400/10" />
+                    </div>
+                    <p className="mt-4 text-sm sm:text-base text-slate-300">Generating personalized recommendations...</p>
+                  </div>
+                ) : recommendations ? (
+                  <>
+                    <p className="text-sm sm:text-base text-slate-200">{recommendations.summary}</p>
 
-              {isHighRisk ? (
-                <div className="mt-4 grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  <div>
-                    <p className="font-semibold text-red-300 text-sm sm:text-base">Diet Tips</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs sm:text-sm text-slate-300">
-                      <li>Reduce sugary drinks and refined carbs.</li>
-                      <li>Focus on high-fiber meals and lean protein.</li>
-                      <li>Control portions and meal timing consistently.</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-red-300 text-sm sm:text-base">Exercise Tips</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs sm:text-sm text-slate-300">
-                      <li>Aim for 30–45 minutes of brisk walking daily.</li>
-                      <li>Add resistance training 2–3 times per week.</li>
-                      <li>Break long sitting periods with short movement.</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-red-300 text-sm sm:text-base">Habits to Avoid</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs sm:text-sm text-slate-300">
-                      <li>Skipping meals followed by heavy eating.</li>
-                      <li>Late-night snacking and poor sleep routines.</li>
-                      <li>Smoking and frequent high-calorie processed food.</li>
-                    </ul>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-4 grid gap-6 grid-cols-1 sm:grid-cols-2">
-                  <div>
-                    <p className="font-semibold text-emerald-300 text-sm sm:text-base">Maintenance Tips</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs sm:text-sm text-slate-300">
-                      <li>Keep balanced meals with whole grains and vegetables.</li>
-                      <li>Stay hydrated and maintain regular sleep schedule.</li>
-                      <li>Monitor your weight and routine health markers.</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-emerald-300 text-sm sm:text-base">Healthy Habits to Continue</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs sm:text-sm text-slate-300">
-                      <li>Continue regular physical activity each week.</li>
-                      <li>Maintain low intake of added sugars.</li>
-                      <li>Do periodic preventive checkups with your doctor.</li>
-                    </ul>
-                  </div>
-                </div>
-              )}
-            </div>
+                    <div className="mt-6 grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                      <div>
+                        <p className="font-semibold text-cyan-300 text-sm sm:text-base">Diet Tips</p>
+                        <ul className="mt-2 list-disc space-y-2 pl-5 text-xs sm:text-sm text-slate-300">
+                          {recommendations.diet_tips.map((tip, index) => (
+                            <li key={`${tip}-${index}`}>{tip}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div>
+                        <p className="font-semibold text-cyan-300 text-sm sm:text-base">Exercise Tips</p>
+                        <ul className="mt-2 list-disc space-y-2 pl-5 text-xs sm:text-sm text-slate-300">
+                          {recommendations.exercise_tips.map((tip, index) => (
+                            <li key={`${tip}-${index}`}>{tip}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div>
+                        <p className="font-semibold text-cyan-300 text-sm sm:text-base">Habits to Avoid</p>
+                        <ul className="mt-2 list-disc space-y-2 pl-5 text-xs sm:text-sm text-slate-300">
+                          {recommendations.habits_to_avoid.map((habit, index) => (
+                            <li key={`${habit}-${index}`}>{habit}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div>
+                        <p className="font-semibold text-cyan-300 text-sm sm:text-base">Good Habits</p>
+                        <ul className="mt-2 list-disc space-y-2 pl-5 text-xs sm:text-sm text-slate-300">
+                          {recommendations.positive_habits.map((habit, index) => (
+                            <li key={`${habit}-${index}`}>{habit}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
