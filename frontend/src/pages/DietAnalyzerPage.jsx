@@ -17,6 +17,14 @@ const loadingMessages = [
   'Fetching results...',
 ]
 
+const textLoadingMessages = [
+  'Reading your food description...',
+  'Identifying food items...',
+  'Calculating nutrition...',
+  'Estimating diabetic risk...',
+  'Fetching results...',
+]
+
 const riskBadgeStyles = {
   low: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40',
   medium: 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
@@ -34,6 +42,8 @@ function DietAnalyzerPage() {
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
   const [messageVisible, setMessageVisible] = useState(true)
   const [isCameraMode, setIsCameraMode] = useState(false)
+  const [textInput, setTextInput] = useState('')
+  const [analysisType, setAnalysisType] = useState(null) // 'image' or 'text'
 
   const videoRef = useRef(null)
   const streamRef = useRef(null)
@@ -54,16 +64,18 @@ function DietAnalyzerPage() {
       return undefined
     }
 
+    const messages = analysisType === 'text' ? textLoadingMessages : loadingMessages
+
     const intervalId = setInterval(() => {
       setMessageVisible(false)
       setTimeout(() => {
-        setLoadingMessageIndex((prev) => (prev + 1) % loadingMessages.length)
+        setLoadingMessageIndex((prev) => (prev + 1) % messages.length)
         setMessageVisible(true)
       }, 250)
     }, 1500)
 
     return () => clearInterval(intervalId)
-  }, [loading])
+  }, [loading, analysisType])
 
   useEffect(() => {
     return () => {
@@ -199,6 +211,7 @@ function DietAnalyzerPage() {
     setLoading(true)
     setError('')
     setAnalysis(null)
+    setAnalysisType('image')
 
     try {
       const formData = new FormData()
@@ -230,14 +243,57 @@ function DietAnalyzerPage() {
     }
   }
 
+  const handleAnalyzeText = async () => {
+    if (!textInput.trim()) {
+      setError('Please enter a food description.')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+    setAnalysis(null)
+    setAnalysisType('text')
+
+    try {
+      const response = await fetch('http://localhost:5000/analyze-food-text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ food_description: textInput }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to analyze food description.')
+      }
+
+      const newAnalysisEntry = {
+        id: Date.now(),
+        ...data,
+        image_url: null,
+      }
+
+      setAnalysis(newAnalysisEntry)
+      setActiveHistoryId(newAnalysisEntry.id)
+      setAnalysisHistory((prev) => [newAnalysisEntry, ...prev])
+    } catch (analysisError) {
+      setError(analysisError.message || 'Something went wrong while analyzing the food description.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleAnalyzeAnother = () => {
     stopCameraStream()
     setIsCameraMode(false)
     setAnalysis(null)
     setSelectedFile(null)
     setPreviewUrl('')
+    setTextInput('')
     setError('')
     setActiveHistoryId(null)
+    setAnalysisType(null)
   }
 
   const handleSelectHistory = (item) => {
@@ -251,112 +307,142 @@ function DietAnalyzerPage() {
 
   return (
     <section className={`mx-auto w-full max-w-7xl px-4 sm:px-6 py-8 sm:py-14 ${hasHistory ? 'lg:pr-[18.5rem]' : ''}`}>
-      <div className="mx-auto w-full max-w-[800px] space-y-8">
+      <div className="mx-auto w-full max-w-[900px] space-y-8">
         {!loading && !analysis ? (
           <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8 shadow-xl shadow-slate-950/40">
             <h1 className="text-2xl sm:text-3xl font-bold text-white">Diet Analyzer</h1>
             <p className="mt-2 text-sm sm:text-base text-slate-300">
-              Upload a food image and get nutrition details with diabetic risk insights.
+              Upload a food image, take a photo, or describe your food to get nutrition details with diabetic risk insights.
             </p>
 
-            {isCameraMode ? (
-              <div className="mt-8 rounded-2xl border border-slate-700 bg-slate-950/60 p-6 sm:p-8 text-center">
-                {previewUrl ? (
-                  <div className="space-y-4">
-                    <img
-                      src={previewUrl}
-                      alt="Captured food preview"
-                      className="mx-auto max-h-64 sm:max-h-72 rounded-xl border border-slate-700 object-contain"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleRetakePhoto}
-                      className="inline-flex items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-5 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-700"
-                    >
-                      Retake
-                    </button>
+            <div className="mt-8 grid gap-6 grid-cols-1 lg:grid-cols-[1fr_auto_1fr] lg:items-stretch">
+              {/* Left Section: Image Upload */}
+              <div className="lg:pr-4">
+                {isCameraMode ? (
+                  <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-6 sm:p-8 text-center">
+                    {previewUrl ? (
+                      <div className="space-y-4">
+                        <img
+                          src={previewUrl}
+                          alt="Captured food preview"
+                          className="mx-auto max-h-64 sm:max-h-72 rounded-xl border border-slate-700 object-contain"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleRetakePhoto}
+                          className="inline-flex items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-5 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-700"
+                        >
+                          Retake
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          className="mx-auto w-full max-w-lg rounded-xl border border-slate-700 bg-slate-950"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleCapturePhoto}
+                          className="inline-flex items-center justify-center rounded-xl bg-cyan-500 px-5 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400"
+                        >
+                          Capture
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="mx-auto w-full max-w-lg rounded-xl border border-slate-700 bg-slate-950"
-                    />
+                  <>
+                    <div
+                      className="rounded-2xl border-2 border-dashed border-slate-700 bg-slate-950/60 p-6 sm:p-8 text-center"
+                      onDrop={handleDrop}
+                      onDragOver={handleDragOver}
+                    >
+                      <input
+                        id="food-image-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleInputChange}
+                      />
+
+                      <label
+                        htmlFor="food-image-upload"
+                        className="cursor-pointer text-sm sm:text-base text-cyan-300 hover:text-cyan-200"
+                      >
+                        Drag and drop a food image here, or click to upload
+                      </label>
+
+                      {previewUrl ? (
+                        <div className="mt-5">
+                          <img
+                            src={previewUrl}
+                            alt="Food preview"
+                            className="mx-auto max-h-64 sm:max-h-72 rounded-xl border border-slate-700 object-contain"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-4 text-center">
+                      <button
+                        type="button"
+                        onClick={startCamera}
+                        className="inline-flex items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-5 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-700"
+                      >
+                        📷 Take a Photo
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {selectedFile || previewUrl ? (
+                  <div className="mt-4 text-center">
                     <button
                       type="button"
-                      onClick={handleCapturePhoto}
-                      className="inline-flex items-center justify-center rounded-xl bg-cyan-500 px-5 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400"
+                      onClick={handleAnalyze}
+                      className="w-full inline-flex items-center justify-center rounded-xl bg-cyan-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400"
                     >
-                      Capture
+                      Analyze Image
                     </button>
                   </div>
-                )}
+                ) : null}
               </div>
-            ) : (
-              <>
-                <div
-                  className="mt-8 rounded-2xl border-2 border-dashed border-slate-700 bg-slate-950/60 p-6 sm:p-8 text-center"
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                >
-                  <input
-                    id="food-image-upload"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleInputChange}
+
+              {/* Divider */}
+              <div className="flex items-center lg:flex-col lg:gap-0 lg:justify-center">
+                <span className="h-px flex-1 bg-slate-700 lg:h-auto lg:w-px lg:flex-1" />
+                <span className="px-4 lg:px-0 lg:py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">OR</span>
+                <span className="h-px flex-1 bg-slate-700 lg:h-auto lg:w-px lg:flex-1" />
+              </div>
+
+              {/* Right Section: Text Input */}
+              <div className="space-y-4 lg:pl-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Food Description</label>
+                  <textarea
+                    value={textInput}
+                    onChange={(e) => setTextInput(e.target.value)}
+                    placeholder="Describe your food (e.g., 2 chapatis and 1 bowl of dal)"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+                    rows={6}
                   />
-
-                  <label
-                    htmlFor="food-image-upload"
-                    className="cursor-pointer text-sm sm:text-base text-cyan-300 hover:text-cyan-200"
-                  >
-                    Drag and drop a food image here, or click to upload
-                  </label>
-
-                  {previewUrl ? (
-                    <div className="mt-5">
-                      <img
-                        src={previewUrl}
-                        alt="Food preview"
-                        className="mx-auto max-h-64 sm:max-h-72 rounded-xl border border-slate-700 object-contain"
-                      />
-                    </div>
-                  ) : null}
                 </div>
 
-                <div className="mt-5 flex items-center gap-4">
-                  <span className="h-px flex-1 bg-slate-700" />
-                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">OR</span>
-                  <span className="h-px flex-1 bg-slate-700" />
-                </div>
-
-                <div className="mt-4 text-center">
-                  <button
-                    type="button"
-                    onClick={startCamera}
-                    className="inline-flex items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-5 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-700"
-                  >
-                    📷 Take a Photo
-                  </button>
-                </div>
-              </>
-            )}
-
-            <div className="mt-6 flex flex-col sm:flex-row items-center gap-4">
-              <button
-                type="button"
-                onClick={handleAnalyze}
-                className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl bg-cyan-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400"
-              >
-                Analyze
-              </button>
-
-              {error ? <p className="text-xs sm:text-sm text-red-400">{error}</p> : null}
+                <button
+                  type="button"
+                  onClick={handleAnalyzeText}
+                  className="w-full inline-flex items-center justify-center rounded-xl bg-cyan-500 px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400"
+                >
+                  Analyze Text
+                </button>
+              </div>
             </div>
+
+            {error ? <p className="mt-6 text-xs sm:text-sm text-red-400">{error}</p> : null}
           </div>
         ) : null}
 
@@ -373,7 +459,7 @@ function DietAnalyzerPage() {
               <p
                 className={`mt-5 text-xs sm:text-sm text-slate-300 transition-opacity duration-500 px-4 ${messageVisible ? 'opacity-100' : 'opacity-0'}`}
               >
-                {loadingMessages[loadingMessageIndex]}
+                {(analysisType === 'text' ? textLoadingMessages : loadingMessages)[loadingMessageIndex]}
               </p>
             </div>
           </div>
@@ -384,12 +470,16 @@ function DietAnalyzerPage() {
             <div className="grid gap-6 grid-cols-1 lg:grid-cols-5 lg:items-start">
               <div className="lg:col-span-2">
                 <div className="flex flex-col items-center gap-4 lg:items-start">
-                  {previewUrl ? (
+                  {analysisType === 'image' && previewUrl ? (
                     <img
                       src={previewUrl}
                       alt="Analyzed food"
                       className="h-48 w-48 sm:h-56 sm:w-56 rounded-xl border border-slate-700 object-cover"
                     />
+                  ) : analysisType === 'text' ? (
+                    <div className="h-48 w-48 sm:h-56 sm:w-56 rounded-xl border border-slate-700 bg-slate-950/60 flex items-center justify-center text-6xl">
+                      🍱
+                    </div>
                   ) : null}
 
                   <button

@@ -24,6 +24,15 @@ CORS(app)
 MODEL_PATH = Path(__file__).resolve().parent / "model.pkl"
 REQUIRED_FIELDS = ["Pregnancies", "Glucose", "Insulin", "BMI", "Age"]
 FOOD_ANALYSIS_PROMPT = "Analyze this food image and return ONLY a JSON object with no extra text, no markdown, no backticks. Assume a conservative standard single serving portion size. Do not overestimate. The JSON must have: food_name (string), calories_min (number), calories_max (number — must not exceed calories_min by more than 150), sugar_min (number), sugar_max (number — must not exceed sugar_min by more than 5), carbs_min (number), carbs_max (number — must not exceed carbs_min by more than 40), protein_min (number), protein_max (number — must not exceed protein_min by more than 8), fat_min (number), fat_max (number — must not exceed fat_min by more than 10), diabetic_risk (string: Low / Medium / High), reason (string, one sentence)."
+FOOD_TEXT_ANALYSIS_PROMPT = "A user described their food as: '{food_description}'. Analyze this food description and return ONLY a JSON object with no extra text, no markdown, no backticks. Assume a conservative standard single serving portion size. Do not overestimate. The JSON must have: food_name (string), calories_min (number), calories_max (number — must not exceed calories_min by more than 150), sugar_min (number), sugar_max (number — must not exceed sugar_min by more than 5), carbs_min (number), carbs_max (number — must not exceed carbs_min by more than 40), protein_min (number), protein_max (number — must not exceed protein_min by more than 8), fat_min (number), fat_max (number — must not exceed fat_min by more than 10), diabetic_risk (string: Low / Medium / High), reason (string, one sentence)."
+RECOMMENDATION_PROMPT = "A patient has the following health values: Pregnancies: {p}, Glucose: {g}, Insulin: {i}, BMI: {b}, Age: {a}. The diabetes risk prediction model gave them a result of {result} with {probability}% probability. Give personalized health recommendations in JSON format with these fields: diet_tips (array of 4 strings), exercise_tips (array of 3 strings), habits_to_avoid (array of 3 strings), positive_habits (array of 3 strings), summary (one paragraph personalized summary). Be specific to their values, not generic."
+RECOMMENDATION_FIELDS = [
+    "diet_tips",
+    "exercise_tips",
+    "habits_to_avoid",
+    "positive_habits",
+    "summary",
+]
 FOOD_ANALYSIS_FIELDS = [
     "food_name",
     "calories_min",
@@ -43,6 +52,9 @@ FOOD_ANALYSIS_FIELDS = [
 load_dotenv(Path(__file__).resolve().parent / ".env")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 PREFERRED_GEMINI_MODELS = [
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash-lite-preview-06-17",
+    "gemini-2.5-flash-lite-preview",
     "gemini-2.5-flash",
     "gemini-2.5-flash-preview-05-20",
     "gemini-2.5-flash-preview",
@@ -77,7 +89,7 @@ def _select_available_gemini_model_name() -> str | None:
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    selected_model_name = _select_available_gemini_model_name() or "gemini-2.5-flash"
+    selected_model_name = _select_available_gemini_model_name() or "gemini-2.5-flash-lite"
     gemini_model = genai.GenerativeModel(selected_model_name)
     generation_config = genai.types.GenerationConfig(temperature=0)
 else:
@@ -147,6 +159,30 @@ def _normalize_food_analysis(payload: dict) -> dict:
     }
 
 
+def _normalize_recommendations(payload: dict) -> dict:
+    missing_fields = [field for field in RECOMMENDATION_FIELDS if field not in payload]
+    if missing_fields:
+        raise ValueError(f"Gemini response missing fields: {', '.join(missing_fields)}")
+
+    def _normalize_string_list(value, field_name: str) -> list[str]:
+        if not isinstance(value, list):
+            raise ValueError(f"Gemini response field must be an array: {field_name}")
+
+        normalized_items = [str(item).strip() for item in value if str(item).strip()]
+        if len(normalized_items) != len(value):
+            raise ValueError(f"Gemini response field contains empty items: {field_name}")
+
+        return normalized_items
+
+    return {
+        "diet_tips": _normalize_string_list(payload["diet_tips"], "diet_tips"),
+        "exercise_tips": _normalize_string_list(payload["exercise_tips"], "exercise_tips"),
+        "habits_to_avoid": _normalize_string_list(payload["habits_to_avoid"], "habits_to_avoid"),
+        "positive_habits": _normalize_string_list(payload["positive_habits"], "positive_habits"),
+        "summary": str(payload["summary"]).strip(),
+    }
+
+
 def _parse_retry_seconds(error_text: str) -> int | None:
     match = re.search(r"Please retry in\s+(\d+(?:\.\d+)?)s", error_text, flags=re.IGNORECASE)
     if not match:
@@ -175,6 +211,25 @@ def _build_gemini_error_response(exc: Exception):
         return jsonify(payload), 429
 
     return jsonify({"error": f"Food analysis failed: {error_text}"}), 500
+
+
+def _generate_gemini_content(prompt: str):
+    if gemini_model is None:
+        raise ValueError("Gemini API key is not configured on the server.")
+
+    try:
+        return gemini_model.generate_content(prompt, generation_config=generation_config)
+    except Exception as exc:
+        error_message = str(exc)
+        if "not found" in error_message.lower() or "not supported" in error_message.lower():
+            fallback_model_name = _select_available_gemini_model_name()
+            if fallback_model_name:
+                fallback_model = genai.GenerativeModel(fallback_model_name)
+                return fallback_model.generate_content(prompt, generation_config=generation_config)
+
+            raise ValueError("No Gemini model with generateContent is available for this API key.")
+
+        raise
 
 
 @app.post("/predict")
@@ -290,6 +345,84 @@ def analyze_food():
 
         parsed = _extract_json_from_text(response_text)
         normalized = _normalize_food_analysis(parsed)
+        return jsonify(normalized)
+    except ValueError as exc:
+        return jsonify({"error": f"Failed to parse Gemini response: {str(exc)}"}), 502
+    except Exception as exc:
+        return _build_gemini_error_response(exc)
+
+
+@app.post("/analyze-food-text")
+def analyze_food_text():
+    if gemini_model is None:
+        return jsonify({"error": "Gemini API key is not configured on the server."}), 500
+
+    data = request.get_json() or {}
+    food_description = data.get("food_description", "").strip()
+
+    if not food_description:
+        return jsonify({"error": "Food description is required."}), 400
+
+    try:
+        prompt = FOOD_TEXT_ANALYSIS_PROMPT.format(food_description=food_description)
+        response = _generate_gemini_content(prompt)
+
+        response_text = (response.text or "").strip()
+        if not response_text:
+            raise ValueError("Gemini returned an empty response.")
+
+        parsed = _extract_json_from_text(response_text)
+        normalized = _normalize_food_analysis(parsed)
+        return jsonify(normalized)
+    except ValueError as exc:
+        return jsonify({"error": f"Failed to parse Gemini response: {str(exc)}"}), 502
+    except Exception as exc:
+        return _build_gemini_error_response(exc)
+
+
+@app.post("/recommend")
+def recommend():
+    if gemini_model is None:
+        return jsonify({"error": "Gemini API key is not configured on the server."}), 500
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Request body must be a valid JSON object."}), 400
+
+    try:
+        pregnancies = _to_float(payload, "Pregnancies")
+        glucose = _to_float(payload, "Glucose")
+        insulin = _to_float(payload, "Insulin")
+        bmi = _to_float(payload, "BMI")
+        age = _to_float(payload, "Age")
+        result_value = str(payload.get("result", "")).strip()
+        probability_value = str(payload.get("probability", "")).strip()
+
+        if not result_value:
+            raise ValueError("Missing required field: result")
+        if not probability_value:
+            raise ValueError("Missing required field: probability")
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    try:
+        prompt = RECOMMENDATION_PROMPT.format(
+            p=pregnancies,
+            g=glucose,
+            i=insulin,
+            b=bmi,
+            a=age,
+            result=result_value,
+            probability=probability_value,
+        )
+
+        response = _generate_gemini_content(prompt)
+        response_text = (response.text or "").strip()
+        if not response_text:
+            raise ValueError("Gemini returned an empty response.")
+
+        parsed = _extract_json_from_text(response_text)
+        normalized = _normalize_recommendations(parsed)
         return jsonify(normalized)
     except ValueError as exc:
         return jsonify({"error": f"Failed to parse Gemini response: {str(exc)}"}), 502
