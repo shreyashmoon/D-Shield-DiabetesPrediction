@@ -1,13 +1,49 @@
 import { Link, NavLink } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 
 const navLinkBase =
   'block rounded-md px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-800 hover:text-white'
 
 const navLinkActive = 'bg-cyan-500/20 text-cyan-300'
 
+const RECENT_PREDICTIONS_STORAGE_KEY = 'dshield-recent-predictions'
+
 function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
+  const [recentPredictions, setRecentPredictions] = useState([])
+  const location = useLocation()
+  const isPredictPage = location.pathname === '/predict'
+
+  useEffect(() => {
+    const syncRecentPredictions = () => {
+      try {
+        const storedHistory = window.localStorage.getItem(RECENT_PREDICTIONS_STORAGE_KEY)
+        const parsedHistory = storedHistory ? JSON.parse(storedHistory) : []
+        setRecentPredictions(Array.isArray(parsedHistory) ? parsedHistory : [])
+      } catch {
+        setRecentPredictions([])
+      }
+    }
+
+    syncRecentPredictions()
+
+    const handleRecentPredictionsUpdated = (event) => {
+      if (Array.isArray(event.detail)) {
+        setRecentPredictions(event.detail)
+      } else {
+        syncRecentPredictions()
+      }
+    }
+
+    window.addEventListener('dshield-recent-predictions-updated', handleRecentPredictionsUpdated)
+    window.addEventListener('storage', syncRecentPredictions)
+
+    return () => {
+      window.removeEventListener('dshield-recent-predictions-updated', handleRecentPredictionsUpdated)
+      window.removeEventListener('storage', syncRecentPredictions)
+    }
+  }, [])
 
   const toggleMenu = () => {
     setIsOpen(!isOpen)
@@ -15,6 +51,15 @@ function Navbar() {
 
   const closeMenu = () => {
     setIsOpen(false)
+  }
+
+  const handlePresetClick = (entry) => {
+    closeMenu()
+    window.dispatchEvent(
+      new CustomEvent('dshield-mobile-preset-select', {
+        detail: entry,
+      }),
+    )
   }
 
   return (
@@ -118,6 +163,27 @@ function Navbar() {
               >
                 Diet Analyzer
               </NavLink>
+
+              {isPredictPage && recentPredictions.length > 0 ? (
+                <div className="mt-5 border-t border-slate-800 pt-4">
+                  <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Recent Predictions
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {recentPredictions.map((entry) => (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        onClick={() => handlePresetClick(entry)}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-cyan-700/40 bg-cyan-950/80 px-3 py-1.5 text-xs font-medium text-cyan-100 transition hover:bg-cyan-900/90 hover:text-white"
+                      >
+                        <span aria-hidden="true">👤</span>
+                        <span className="truncate">{entry.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

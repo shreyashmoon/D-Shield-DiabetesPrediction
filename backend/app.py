@@ -481,5 +481,50 @@ def recommend():
         return _build_gemini_error_response(exc)
 
 
+@app.post("/translate-recommendation")
+def translate_recommendation():
+    if gemini_model is None:
+        return jsonify({"error": "Gemini API key is not configured on the server."}), 500
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Request body must be a valid JSON object."}), 400
+
+    recommendation = data.get("recommendation")
+    language = data.get("language", "").strip()
+
+    if not recommendation:
+        return jsonify({"error": "Recommendation object is required."}), 400
+    if language not in ["Hindi", "Marathi"]:
+        return jsonify({"error": "Language must be either 'Hindi' or 'Marathi'."}), 400
+
+    try:
+        recommendation_json = json.dumps(recommendation)
+        prompt = (
+            f"Translate the following health recommendation JSON into {language}. "
+            f"Return ONLY the translated JSON object with exactly the same structure and field names in English, "
+            f"but all string values translated to {language}. Keep medical terms accurate. "
+            f"JSON to translate: {recommendation_json}"
+        )
+
+        response = _generate_gemini_content(prompt)
+        response_text = (response.text or "").strip()
+
+        if not response_text:
+            raise ValueError("Gemini returned an empty response.")
+
+        parsed = _extract_json_from_text(response_text)
+
+        missing_fields = [field for field in RECOMMENDATION_FIELDS if field not in parsed]
+        if missing_fields:
+            raise ValueError(f"Translated response missing fields: {', '.join(missing_fields)}")
+
+        return jsonify(parsed)
+    except ValueError as exc:
+        return jsonify({"error": str(exc), "fallback": recommendation}), 502
+    except Exception as exc:
+        return jsonify({"error": f"Translation failed: {str(exc)}", "fallback": recommendation}), 500
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)

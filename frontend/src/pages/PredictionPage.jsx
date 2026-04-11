@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -80,6 +80,8 @@ const defaultPredictionPresets = [
   },
 ]
 
+const RECENT_PREDICTIONS_STORAGE_KEY = 'dshield-recent-predictions'
+
 function PredictionPage() {
   const [formData, setFormData] = useState(initialForm)
   const [patientName, setPatientName] = useState('')
@@ -89,9 +91,26 @@ function PredictionPage() {
   const [recommendationError, setRecommendationError] = useState('')
   const [result, setResult] = useState(null)
   const [recommendations, setRecommendations] = useState(null)
-  const [predictionHistory, setPredictionHistory] = useState(defaultPredictionPresets)
+  const [predictionHistory, setPredictionHistory] = useState(() => {
+    try {
+      const storedHistory = window.localStorage.getItem(RECENT_PREDICTIONS_STORAGE_KEY)
+      if (storedHistory) {
+        const parsedHistory = JSON.parse(storedHistory)
+        if (Array.isArray(parsedHistory) && parsedHistory.length > 0) {
+          return parsedHistory
+        }
+      }
+    } catch {
+      // Ignore storage errors and fall back to defaults.
+    }
+
+    return defaultPredictionPresets
+  })
   const [duplicateWarning, setDuplicateWarning] = useState('')
   const [highlightedHistoryId, setHighlightedHistoryId] = useState(null)
+  const [selectedLanguage, setSelectedLanguage] = useState('English')
+  const [originalRecommendations, setOriginalRecommendations] = useState(null)
+  const [translationLoading, setTranslationLoading] = useState(false)
 
   const hasPredictionHistory = predictionHistory.length > 0
 
@@ -130,6 +149,33 @@ function PredictionPage() {
   const probabilityPercent = result
     ? `${probabilityValue}% probability of diabetes`
     : ''
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(RECENT_PREDICTIONS_STORAGE_KEY, JSON.stringify(predictionHistory))
+      window.dispatchEvent(
+        new CustomEvent('dshield-recent-predictions-updated', {
+          detail: predictionHistory,
+        }),
+      )
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [predictionHistory])
+
+  useEffect(() => {
+    const handleMobilePresetSelect = (event) => {
+      const entry = event.detail
+      if (entry) {
+        handleSelectPrediction(entry)
+      }
+    }
+
+    window.addEventListener('dshield-mobile-preset-select', handleMobilePresetSelect)
+    return () => {
+      window.removeEventListener('dshield-mobile-preset-select', handleMobilePresetSelect)
+    }
+  }, [])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -206,6 +252,7 @@ function PredictionPage() {
       }
 
       setResult(data)
+      setSelectedLanguage('English')
       const historyItem = {
         id: Date.now(),
         name: trimmedName,
@@ -282,10 +329,51 @@ function PredictionPage() {
       }
 
       setRecommendations(data)
+      setOriginalRecommendations(data)
+      setSelectedLanguage('English')
     } catch (recommendationSubmitError) {
       setRecommendationError(recommendationSubmitError.message || 'Something went wrong while fetching recommendations.')
     } finally {
       setRecommendationLoading(false)
+    }
+  }
+
+  const handleLanguageChange = async (language) => {
+    if (language === 'English') {
+      setSelectedLanguage('English')
+      setRecommendations(originalRecommendations)
+      return
+    }
+
+    if (!originalRecommendations) {
+      return
+    }
+
+    setTranslationLoading(true)
+    try {
+      const response = await fetch('http://localhost:5000/translate-recommendation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recommendation: originalRecommendations,
+          language,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data?.error || `Translation to ${language} failed.`)
+      }
+
+      setRecommendations(data)
+      setSelectedLanguage(language)
+    } catch (translationError) {
+      console.error('Translation error:', translationError)
+    } finally {
+      setTranslationLoading(false)
     }
   }
 
@@ -499,6 +587,51 @@ function PredictionPage() {
                           ))}
                         </ul>
                       </div>
+                    </div>
+
+                    {translationLoading ? (
+                      <div className="mt-6 flex items-center justify-center">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-cyan-500 border-t-transparent" />
+                      </div>
+                    ) : null}
+
+                    <div className="mt-6 flex items-center justify-center gap-3 border-t border-slate-700 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => handleLanguageChange('English')}
+                        disabled={translationLoading}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                          selectedLanguage === 'English'
+                            ? 'bg-cyan-500 text-slate-950'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        } disabled:opacity-70 disabled:cursor-not-allowed`}
+                      >
+                        English
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleLanguageChange('Hindi')}
+                        disabled={translationLoading}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                          selectedLanguage === 'Hindi'
+                            ? 'bg-cyan-500 text-slate-950'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        } disabled:opacity-70 disabled:cursor-not-allowed`}
+                      >
+                        हिंदी
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleLanguageChange('Marathi')}
+                        disabled={translationLoading}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                          selectedLanguage === 'Marathi'
+                            ? 'bg-cyan-500 text-slate-950'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        } disabled:opacity-70 disabled:cursor-not-allowed`}
+                      >
+                        मराठी
+                      </button>
                     </div>
                   </>
                 ) : null}
