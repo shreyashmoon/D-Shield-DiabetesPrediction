@@ -15,6 +15,7 @@ const fieldConfig = [
   { name: 'Glucose', min: 0, max: 300, step: 1, type: 'number' },
   { name: 'Insulin', min: 0, max: 900, step: 1, type: 'number' },
   { name: 'BMI', min: 0, max: 70, step: 0.1, type: 'number' },
+  { name: 'BloodPressure', min: 0, max: 122, step: 1, type: 'number' },
   { name: 'Age', min: 1, max: 120, step: 1, type: 'number' },
 ]
 
@@ -23,7 +24,17 @@ const initialForm = {
   Glucose: '',
   Insulin: '',
   BMI: '',
+  BloodPressure: '',
   Age: '',
+}
+
+const fieldLabels = {
+  Pregnancies: 'Pregnancies',
+  Glucose: 'Glucose',
+  Insulin: 'Insulin',
+  BMI: 'BMI',
+  BloodPressure: 'Blood Pressure',
+  Age: 'Age',
 }
 
 const fieldPlaceholders = {
@@ -31,6 +42,7 @@ const fieldPlaceholders = {
   Glucose: 'Enter glucose level',
   Insulin: 'Enter insulin level',
   BMI: 'Enter BMI value',
+  BloodPressure: 'Enter diastolic blood pressure',
   Age: 'Enter age',
 }
 
@@ -38,6 +50,7 @@ const fieldTooltips = {
   Glucose: 'Normal fasting glucose is 70–100 mg/dL. Enter value between 0–300.',
   Insulin: 'Normal insulin level is 2–25 μU/mL. Enter value between 0–900.',
   BMI: 'BMI is weight(kg) divided by height(m²). Normal range is 18.5–24.9. Enter value between 0–70.',
+  BloodPressure: 'Diastolic blood pressure in mm Hg. Normal range is 60–80 mm Hg. Enter value between 0–122.',
 }
 
 const defaultPredictionPresets = [
@@ -49,6 +62,7 @@ const defaultPredictionPresets = [
       Glucose: '137',
       Insulin: '168',
       BMI: '43.1',
+      BloodPressure: '40',
       Age: '33',
     },
   },
@@ -60,6 +74,7 @@ const defaultPredictionPresets = [
       Glucose: '89',
       Insulin: '94',
       BMI: '28.1',
+      BloodPressure: '66',
       Age: '21',
     },
   },
@@ -85,14 +100,28 @@ function PredictionPage() {
       return []
     }
 
-    const allowedFeatures = ['Glucose', 'BMI', 'Age', 'Insulin', 'Pregnancies']
+    const allowedFeatures = ['Glucose', 'BMI', 'Age', 'Insulin', 'Pregnancies', 'BloodPressure']
+    const preferredOrder = ['Glucose', 'BMI', 'Age', 'Insulin', 'Pregnancies', 'BloodPressure']
 
     return Object.entries(result.shap_values)
-      .filter(([feature]) => allowedFeatures.includes(feature))
-      .map(([feature, value]) => ({
-        feature,
-        value: Number(value),
-      }))
+      .reduce((items, [feature, value]) => {
+        if (!allowedFeatures.includes(feature)) {
+          return items
+        }
+
+        const label = feature
+        if (items.some((item) => item.label === label)) {
+          return items
+        }
+
+        items.push({
+          feature,
+          label,
+          value: Number(value),
+        })
+        return items
+      }, [])
+      .sort((left, right) => preferredOrder.indexOf(left.label) - preferredOrder.indexOf(right.label))
   }, [result])
 
   const isHighRisk = result?.prediction === 1
@@ -150,6 +179,7 @@ function PredictionPage() {
         Number(entry.values.Glucose) === payload.Glucose &&
         Number(entry.values.Insulin) === payload.Insulin &&
         Number(entry.values.BMI) === payload.BMI &&
+        Number(entry.values.BloodPressure) === payload.BloodPressure &&
         Number(entry.values.Age) === payload.Age
       )
     })
@@ -161,7 +191,7 @@ function PredictionPage() {
     setRecommendationLoading(false)
 
     try {
-      const response = await fetch('http://localhost:5000/predict', {
+      const response = await fetch('http://localhost:5000/predict-v2', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -184,6 +214,7 @@ function PredictionPage() {
           Glucose: formData.Glucose,
           Insulin: formData.Insulin,
           BMI: formData.BMI,
+          BloodPressure: formData.BloodPressure,
           Age: formData.Age,
         },
       }
@@ -211,6 +242,7 @@ function PredictionPage() {
       Glucose: String(entry.values.Glucose),
       Insulin: String(entry.values.Insulin),
       BMI: String(entry.values.BMI),
+      BloodPressure: String(entry.values.BloodPressure ?? ''),
       Age: String(entry.values.Age),
     })
     setError('')
@@ -285,7 +317,7 @@ function PredictionPage() {
             {fieldConfig.map((field) => (
               <label key={field.name} className="flex flex-col gap-2">
                 <span className="inline-flex items-center gap-2 text-xs sm:text-sm font-medium text-slate-200">
-                  {field.name}
+                  {fieldLabels[field.name]}
                   {fieldTooltips[field.name] ? (
                     <span className="group relative inline-flex">
                       <span
@@ -365,7 +397,7 @@ function PredictionPage() {
                     />
                     <YAxis
                       type="category"
-                      dataKey="feature"
+                      dataKey="label"
                       width={80}
                       stroke="#94a3b8"
                       tick={{ fill: '#cbd5e1', fontSize: 11 }}
@@ -377,6 +409,9 @@ function PredictionPage() {
                         borderRadius: '10px',
                         color: '#e2e8f0',
                       }}
+                      labelStyle={{ color: '#e2e8f0' }}
+                      itemStyle={{ color: '#e2e8f0' }}
+                      wrapperStyle={{ outline: 'none' }}
                       cursor={{ fill: 'rgba(148, 163, 184, 0.08)' }}
                       formatter={(value) => [Number(value).toFixed(4), 'SHAP Value']}
                     />

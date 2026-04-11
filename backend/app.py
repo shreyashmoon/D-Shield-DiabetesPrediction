@@ -21,8 +21,9 @@ from function.transformers import ColumnSelector, FeatureEngineering, WoEEncodin
 app = Flask(__name__)
 CORS(app)
 
-MODEL_PATH = Path(__file__).resolve().parent / "model.pkl"
+MODEL_PATH = Path(__file__).resolve().parent / "new_model.pkl"
 REQUIRED_FIELDS = ["Pregnancies", "Glucose", "Insulin", "BMI", "Age"]
+REQUIRED_FIELDS_V2 = ["Pregnancies", "Glucose", "BloodPressure", "Insulin", "BMI", "Age"]
 FOOD_ANALYSIS_PROMPT = "Analyze this food image and return ONLY a JSON object with no extra text, no markdown, no backticks. Assume a conservative standard single serving portion size. Do not overestimate. The JSON must have: food_name (string), calories_min (number), calories_max (number — must not exceed calories_min by more than 150), sugar_min (number), sugar_max (number — must not exceed sugar_min by more than 5), carbs_min (number), carbs_max (number — must not exceed carbs_min by more than 40), protein_min (number), protein_max (number — must not exceed protein_min by more than 8), fat_min (number), fat_max (number — must not exceed fat_min by more than 10), diabetic_risk (string: Low / Medium / High), reason (string, one sentence)."
 FOOD_TEXT_ANALYSIS_PROMPT = "A user described their food as: '{food_description}'. Analyze this food description and return ONLY a JSON object with no extra text, no markdown, no backticks. Assume a conservative standard single serving portion size. Do not overestimate. The JSON must have: food_name (string), calories_min (number), calories_max (number — must not exceed calories_min by more than 150), sugar_min (number), sugar_max (number — must not exceed sugar_min by more than 5), carbs_min (number), carbs_max (number — must not exceed carbs_min by more than 40), protein_min (number), protein_max (number — must not exceed protein_min by more than 8), fat_min (number), fat_max (number — must not exceed fat_min by more than 10), diabetic_risk (string: Low / Medium / High), reason (string, one sentence)."
 RECOMMENDATION_PROMPT = "A patient has the following health values: Pregnancies: {p}, Glucose: {g}, Insulin: {i}, BMI: {b}, Age: {a}. The diabetes risk prediction model gave them a result of {result} with {probability}% probability. Give personalized health recommendations in JSON format with these fields: diet_tips (array of 4 strings), exercise_tips (array of 3 strings), habits_to_avoid (array of 3 strings), positive_habits (array of 3 strings), summary (one paragraph personalized summary). Be specific to their values, not generic."
@@ -110,7 +111,7 @@ def _load_model(model_path: Path):
         return pickle.load(model_stream)
 
 
-model = _load_model(MODEL_PATH)
+model = _load_model(MODEL_PATH) if MODEL_PATH.exists() else None
 
 
 def _to_float(payload: dict, key: str) -> float:
@@ -279,6 +280,56 @@ def predict():
             "shap_values": shap_values,
         }
     )
+
+
+@app.post("/predict-v2")
+def predict_v2():
+    if model is None:
+        return jsonify({"error": "new_model.pkl not found. Train the model first."}), 503
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Request body must be a valid JSON object."}), 400
+
+    try:
+        input_row = {field: _to_float(payload, field) for field in REQUIRED_FIELDS_V2}
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    try:
+        input_df = pd.DataFrame([input_row], columns=REQUIRED_FIELDS_V2)
+
+        prediction = int(model.predict(input_df)[0])
+        probability = float(model.predict_proba(input_df)[0][1])
+
+        explainer = shap.TreeExplainer(model)
+        shap_output = explainer.shap_values(input_df)
+
+        if isinstance(shap_output, list):
+            shap_array = np.asarray(shap_output[1])[0]
+        else:
+            shap_array = np.asarray(shap_output)
+            if shap_array.ndim == 3:
+                shap_array = shap_array[0, :, 1]
+            elif shap_array.ndim == 2:
+                shap_array = shap_array[0]
+            else:
+                shap_array = np.ravel(shap_array)
+
+        shap_values = {
+            feature: float(value)
+            for feature, value in zip(input_df.columns.tolist(), shap_array.tolist())
+        }
+
+        return jsonify(
+            {
+                "prediction": prediction,
+                "probability": probability,
+                "shap_values": shap_values,
+            }
+        )
+    except Exception as exc:
+        return jsonify({"error": f"Prediction v2 failed: {str(exc)}"}), 500
 
 
 @app.post("/analyze-food")
