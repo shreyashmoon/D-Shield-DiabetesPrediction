@@ -19,7 +19,11 @@ from function.transformers import ColumnSelector, FeatureEngineering, WoEEncodin
 
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=[
+    "http://localhost:5173",
+    "https://dshield.vercel.app",
+    "https://*.vercel.app"
+])
 
 MODEL_PATH = Path(__file__).resolve().parent / "new_model.pkl"
 REQUIRED_FIELDS = ["Pregnancies", "Glucose", "Insulin", "BMI", "Age"]

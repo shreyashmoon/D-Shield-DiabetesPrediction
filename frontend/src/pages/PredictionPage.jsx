@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import API_BASE_URL from '../config.js'
 
 const fieldConfig = [
   { name: 'Pregnancies', min: 0, max: 20, step: 1, type: 'number' },
@@ -237,7 +238,7 @@ function PredictionPage() {
     setRecommendationLoading(false)
 
     try {
-      const response = await fetch('http://localhost:5000/predict-v2', {
+      const response = await fetch(`${API_BASE_URL}/predict-v2`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -306,7 +307,7 @@ function PredictionPage() {
     setRecommendationError('')
 
     try {
-      const response = await fetch('http://localhost:5000/recommend', {
+      const response = await fetch(`${API_BASE_URL}/recommend`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -351,7 +352,7 @@ function PredictionPage() {
 
     setTranslationLoading(true)
     try {
-      const response = await fetch('http://localhost:5000/translate-recommendation', {
+      const response = await fetch(`${API_BASE_URL}/translate-recommendation`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

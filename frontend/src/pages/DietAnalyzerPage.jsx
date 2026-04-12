@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import API_BASE_URL from '../config.js'
 
 const nutrientCards = [
   { minKey: 'calories_min', maxKey: 'calories_max', label: 'Calories', unit: 'kcal' },
@@ -217,7 +218,7 @@ function DietAnalyzerPage() {
       const formData = new FormData()
       formData.append('image', selectedFile)
 
-      const response = await fetch('http://localhost:5000/analyze-food', {
+      const response = await fetch(`${API_BASE_URL}/analyze-food`, {
         method: 'POST',
         body: formData,
       })
@@ -255,7 +256,7 @@ function DietAnalyzerPage() {
     setAnalysisType('text')
 
     try {
-      const response = await fetch('http://localhost:5000/analyze-food-text', {
+      const response = await fetch(`${API_BASE_URL}/analyze-food-text`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
