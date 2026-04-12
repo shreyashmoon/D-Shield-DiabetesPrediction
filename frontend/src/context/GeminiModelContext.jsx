@@ -3,7 +3,7 @@ import { createContext, useContext, useMemo, useState } from 'react'
 const GeminiModelContext = createContext(null)
 
 export function GeminiModelProvider({ children }) {
-  const [selectedModel, setSelectedModel] = useState('Gemini 2 Flash')
+  const [selectedModel, setSelectedModel] = useState('Gemini 2.5 Flash')
 
   const value = useMemo(
     () => ({

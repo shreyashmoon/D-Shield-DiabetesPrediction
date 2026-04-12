@@ -4,12 +4,8 @@ import { useGeminiModel } from '../context/GeminiModelContext'
 const modelOptions = [
   'Gemini 2.5 Flash',
   'Gemini 2.5 Flash Lite',
-  'Gemini 2.5 Pro',
-  'Gemini 2 Flash',
-  'Gemini 2 Flash Lite',
   'Gemini 3 Flash',
   'Gemini 3.1 Flash Lite',
-  'Gemini 3.1 Pro',
 ]
 
 function GeminiModelSelector() {
@@ -43,7 +39,7 @@ function GeminiModelSelector() {
           <div className="mt-3 space-y-2">
             {modelOptions.map((option) => {
               const isSelected = selectedModel === option
-              const isDefault = option === 'Gemini 2 Flash'
+              const isDefault = option === 'Gemini 2.5 Flash'
 
               return (
                 <button
