@@ -53,52 +53,24 @@ FOOD_ANALYSIS_FIELDS = [
     "diabetic_risk",
     "reason",
 ]
+MODEL_MAP = {
+    "Gemini 2.5 Flash": "gemini-2.5-flash",
+    "Gemini 2.5 Flash Lite": "gemini-2.5-flash-lite-preview-06-17",
+    "Gemini 2.5 Pro": "gemini-2.5-pro",
+    "Gemini 2 Flash": "gemini-2.0-flash",
+    "Gemini 2 Flash Lite": "gemini-2.0-flash-lite",
+    "Gemini 3 Flash": "gemini-2.5-flash",
+    "Gemini 3.1 Flash Lite": "gemini-2.5-flash-lite-preview-06-17",
+    "Gemini 3.1 Pro": "gemini-2.5-pro",
+}
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-PREFERRED_GEMINI_MODELS = [
-    "gemini-2.5-flash-lite",
-    "gemini-2.5-flash-lite-preview-06-17",
-    "gemini-2.5-flash-lite-preview",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-preview-05-20",
-    "gemini-2.5-flash-preview",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-latest",
-]
-
-
-def _select_available_gemini_model_name() -> str | None:
-    try:
-        model_infos = list(genai.list_models())
-    except Exception:
-        return None
-
-    supported_names = {
-        info.name.replace("models/", "")
-        for info in model_infos
-        if "generateContent" in getattr(info, "supported_generation_methods", [])
-    }
-
-    for candidate in PREFERRED_GEMINI_MODELS:
-        if candidate in supported_names:
-            return candidate
-
-    for model_name in sorted(supported_names):
-        if "flash" in model_name.lower():
-            return model_name
-
-    return next(iter(sorted(supported_names)), None)
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    selected_model_name = _select_available_gemini_model_name() or "gemini-2.5-flash-lite"
-    gemini_model = genai.GenerativeModel(selected_model_name)
     generation_config = genai.types.GenerationConfig(temperature=0)
 else:
-    gemini_model = None
     generation_config = None
 
 
@@ -218,22 +190,20 @@ def _build_gemini_error_response(exc: Exception):
     return jsonify({"error": f"Food analysis failed: {error_text}"}), 500
 
 
-def _generate_gemini_content(prompt: str):
-    if gemini_model is None:
+def _resolve_model_name(gemini_model: str | None) -> str:
+    return MODEL_MAP.get(gemini_model, "gemini-2.0-flash")
+
+
+def _generate_gemini_content(prompt: str, gemini_model: str | None = None):
+    if not GEMINI_API_KEY:
         raise ValueError("Gemini API key is not configured on the server.")
 
+    resolved_model_name = _resolve_model_name(gemini_model)
+    model_client = genai.GenerativeModel(resolved_model_name)
+
     try:
-        return gemini_model.generate_content(prompt, generation_config=generation_config)
-    except Exception as exc:
-        error_message = str(exc)
-        if "not found" in error_message.lower() or "not supported" in error_message.lower():
-            fallback_model_name = _select_available_gemini_model_name()
-            if fallback_model_name:
-                fallback_model = genai.GenerativeModel(fallback_model_name)
-                return fallback_model.generate_content(prompt, generation_config=generation_config)
-
-            raise ValueError("No Gemini model with generateContent is available for this API key.")
-
+        return model_client.generate_content(prompt, generation_config=generation_config)
+    except Exception:
         raise
 
 
@@ -338,7 +308,7 @@ def predict_v2():
 
 @app.post("/analyze-food")
 def analyze_food():
-    if gemini_model is None:
+    if not GEMINI_API_KEY:
         return jsonify({"error": "Gemini API key is not configured on the server."}), 500
 
     image_file = request.files.get("image") or request.files.get("file")
@@ -353,11 +323,14 @@ def analyze_food():
         if not image_bytes:
             return jsonify({"error": "Uploaded image file is empty."}), 400
 
+        selected_gemini_model = request.form.get("gemini_model")
         image_b64 = base64.b64encode(image_bytes).decode("utf-8")
         mime_type = image_file.mimetype or "image/jpeg"
+        resolved_model_name = _resolve_model_name(selected_gemini_model)
+        model_client = genai.GenerativeModel(resolved_model_name)
 
         try:
-            response = gemini_model.generate_content(
+            response = model_client.generate_content(
                 [
                     {"text": FOOD_ANALYSIS_PROMPT},
                     {
@@ -369,30 +342,8 @@ def analyze_food():
                 ],
                 generation_config=generation_config,
             )
-        except Exception as exc:
-            error_message = str(exc)
-            if "not found" in error_message.lower() or "not supported" in error_message.lower():
-                fallback_model_name = _select_available_gemini_model_name()
-                if fallback_model_name:
-                    fallback_model = genai.GenerativeModel(fallback_model_name)
-                    response = fallback_model.generate_content(
-                        [
-                            {"text": FOOD_ANALYSIS_PROMPT},
-                            {
-                                "inline_data": {
-                                    "mime_type": mime_type,
-                                    "data": image_b64,
-                                }
-                            },
-                        ],
-                        generation_config=generation_config,
-                    )
-                else:
-                    raise ValueError(
-                        "No Gemini model with generateContent is available for this API key."
-                    )
-            else:
-                raise
+        except Exception:
+            raise
 
         response_text = (response.text or "").strip()
         if not response_text:
@@ -407,20 +358,22 @@ def analyze_food():
         return _build_gemini_error_response(exc)
 
 
+@app.post("/analyze-text")
 @app.post("/analyze-food-text")
 def analyze_food_text():
-    if gemini_model is None:
+    if not GEMINI_API_KEY:
         return jsonify({"error": "Gemini API key is not configured on the server."}), 500
 
     data = request.get_json() or {}
     food_description = data.get("food_description", "").strip()
+    selected_gemini_model = data.get("gemini_model")
 
     if not food_description:
         return jsonify({"error": "Food description is required."}), 400
 
     try:
         prompt = FOOD_TEXT_ANALYSIS_PROMPT.format(food_description=food_description)
-        response = _generate_gemini_content(prompt)
+        response = _generate_gemini_content(prompt, selected_gemini_model)
 
         response_text = (response.text or "").strip()
         if not response_text:
@@ -437,7 +390,7 @@ def analyze_food_text():
 
 @app.post("/recommend")
 def recommend():
-    if gemini_model is None:
+    if not GEMINI_API_KEY:
         return jsonify({"error": "Gemini API key is not configured on the server."}), 500
 
     payload = request.get_json(silent=True)
@@ -450,6 +403,7 @@ def recommend():
         insulin = _to_float(payload, "Insulin")
         bmi = _to_float(payload, "BMI")
         age = _to_float(payload, "Age")
+        selected_gemini_model = payload.get("gemini_model")
         result_value = str(payload.get("result", "")).strip()
         probability_value = str(payload.get("probability", "")).strip()
 
@@ -471,7 +425,7 @@ def recommend():
             probability=probability_value,
         )
 
-        response = _generate_gemini_content(prompt)
+        response = _generate_gemini_content(prompt, selected_gemini_model)
         response_text = (response.text or "").strip()
         if not response_text:
             raise ValueError("Gemini returned an empty response.")
@@ -487,7 +441,7 @@ def recommend():
 
 @app.post("/translate-recommendation")
 def translate_recommendation():
-    if gemini_model is None:
+    if not GEMINI_API_KEY:
         return jsonify({"error": "Gemini API key is not configured on the server."}), 500
 
     data = request.get_json(silent=True)
@@ -496,6 +450,7 @@ def translate_recommendation():
 
     recommendation = data.get("recommendation")
     language = data.get("language", "").strip()
+    selected_gemini_model = data.get("gemini_model")
 
     if not recommendation:
         return jsonify({"error": "Recommendation object is required."}), 400
@@ -511,7 +466,7 @@ def translate_recommendation():
             f"JSON to translate: {recommendation_json}"
         )
 
-        response = _generate_gemini_content(prompt)
+        response = _generate_gemini_content(prompt, selected_gemini_model)
         response_text = (response.text or "").strip()
 
         if not response_text:

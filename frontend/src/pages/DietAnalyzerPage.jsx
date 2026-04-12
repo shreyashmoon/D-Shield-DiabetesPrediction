@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import API_BASE_URL from '../config.js'
+import { useGeminiModel } from '../context/GeminiModelContext'
 
 const nutrientCards = [
   { minKey: 'calories_min', maxKey: 'calories_max', label: 'Calories', unit: 'kcal' },
@@ -33,6 +34,7 @@ const riskBadgeStyles = {
 }
 
 function DietAnalyzerPage() {
+  const { selectedModel } = useGeminiModel()
   const [selectedFile, setSelectedFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState('')
   const [loading, setLoading] = useState(false)
@@ -217,6 +219,7 @@ function DietAnalyzerPage() {
     try {
       const formData = new FormData()
       formData.append('image', selectedFile)
+      formData.append('gemini_model', selectedModel)
 
       const response = await fetch(`${API_BASE_URL}/analyze-food`, {
         method: 'POST',
@@ -256,12 +259,12 @@ function DietAnalyzerPage() {
     setAnalysisType('text')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/analyze-food-text`, {
+      const response = await fetch(`${API_BASE_URL}/analyze-text`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ food_description: textInput }),
+        body: JSON.stringify({ food_description: textInput, gemini_model: selectedModel }),
       })
 
       const data = await response.json()

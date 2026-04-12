@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts'
 import API_BASE_URL from '../config.js'
+import { useGeminiModel } from '../context/GeminiModelContext'
 
 const fieldConfig = [
   { name: 'Pregnancies', min: 0, max: 20, step: 1, type: 'number' },
@@ -84,6 +85,7 @@ const defaultPredictionPresets = [
 const RECENT_PREDICTIONS_STORAGE_KEY = 'dshield-recent-predictions'
 
 function PredictionPage() {
+  const { selectedModel } = useGeminiModel()
   const [formData, setFormData] = useState(initialForm)
   const [patientName, setPatientName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -320,6 +322,7 @@ function PredictionPage() {
           Age: Number(formData.Age),
           result: predictionLabel,
           probability: Number(probabilityValue),
+          gemini_model: selectedModel,
         }),
       })
 
@@ -360,6 +363,7 @@ function PredictionPage() {
         body: JSON.stringify({
           recommendation: originalRecommendations,
           language,
+          gemini_model: selectedModel,
         }),
       })
 
