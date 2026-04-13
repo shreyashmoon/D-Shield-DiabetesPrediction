@@ -24,7 +24,7 @@ CORS(app, origins=[
     "https://dshield.vercel.app",
     "https://*.vercel.app",
     "https://d-shield-diabetes-prediction-20knmsahe.vercel.app",
-    "d-shield-diabetes-prediction.vercel.app",
+    "https://d-shield-diabetes-prediction.vercel.app",
     "*",
 ])
 
