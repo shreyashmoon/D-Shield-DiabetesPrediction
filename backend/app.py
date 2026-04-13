@@ -22,7 +22,10 @@ app = Flask(__name__)
 CORS(app, origins=[
     "http://localhost:5173",
     "https://dshield.vercel.app",
-    "https://*.vercel.app"
+    "https://*.vercel.app",
+    "https://d-shield-diabetes-prediction-20knmsahe.vercel.app",
+    "d-shield-diabetes-prediction.vercel.app",
+    "*",
 ])
 
 MODEL_PATH = Path(__file__).resolve().parent / "new_model.pkl"
@@ -191,7 +194,7 @@ def _build_gemini_error_response(exc: Exception):
 
 
 def _resolve_model_name(gemini_model: str | None) -> str:
-    return MODEL_MAP.get(gemini_model, "gemini-2.0-flash")
+    return MODEL_MAP.get(gemini_model, "gemini-2.5-pro")
 
 
 def _generate_gemini_content(prompt: str, gemini_model: str | None = None):

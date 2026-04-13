@@ -11,7 +11,6 @@ __pycache__
 venv/
 venv
 .env
-.env.production
 backend/.env
 frontend/.env.development
 !frontend/.env.production
